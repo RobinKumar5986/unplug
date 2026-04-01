@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Declares the capabilities of UnplugAccessibilityService.
+
+    canRetrieveWindowContent  → lets the service walk the view tree to find
+                                 Reels / Shorts tabs.
+    accessibilityEventTypes   → only subscribe to events we actually need
+                                 (window changes + content changes + scroll).
+    packageNames              → restrict to Instagram and YouTube only — this
+                                 minimises battery drain and privacy exposure.
+-->
+<accessibility-service
+    xmlns:android="http://schemas.android.com/apk/res/android"
+
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewScrolled"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/accessibility_service_description"
+    android:notificationTimeout="100"
+    android:packageNames="com.instagram.android,com.google.android.youtube"
+    android:settingsActivity="com.kgjr.unplug.MainActivity" />

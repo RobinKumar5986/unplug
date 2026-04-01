@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">Unplug</string>
+    <string name="accessibility_service_description">
+        Unplug monitors Instagram and YouTube to automatically navigate away from
+        Reels and Shorts when you have them blocked. All processing happens
+        on-device — no data is collected or shared.
+    </string>
 </resources>
