@@ -22,12 +22,10 @@ import androidx.compose.ui.unit.*
 
 import com.kgjr.unplug.ui.theme.*
 import android.util.Log
-import com.kgjr.unplug.helper.BlockPreferences
-import com.kgjr.unplug.helper.BlockedApp
+import com.kgjr.unplug.sharedpref.BlockPreferences
+import com.kgjr.unplug.sharedpref.BlockedApp
 
 private const val TAG = "BlockScreen"
-
-// ── App registry ──────────────────────────────────────────────────────────────
 
 private val BLOCKABLE_APPS = listOf(
     BlockedApp(
@@ -59,22 +57,15 @@ private fun featureColor(id: String) = when (id) {
     else              -> Accent
 }
 
-// ── Screen ────────────────────────────────────────────────────────────────────
-
 @Composable
 fun BlockScreen() {
     val context = LocalContext.current
+    LaunchedEffect(Unit) { BlockPreferences.init(context) }
 
-    // Init prefs
-    LaunchedEffect(Unit) {
-        BlockPreferences.init(context)
-    }
-
-    // Observe blocked set
     val blockedIds by BlockPreferences.blockedIds.collectAsState()
+    val cheatEnabled by BlockPreferences.cheatEnabled.collectAsState()
     val totalBlocked = blockedIds.size
 
-    // Pulse for the shield orb
     val pulse = rememberInfiniteTransition(label = "pulse")
     val orbScale by pulse.animateFloat(
         initialValue = 1f, targetValue = 1.06f,
@@ -82,12 +73,7 @@ fun BlockScreen() {
         label = "orbScale"
     )
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Background)
-    ) {
-        // Background glow
+    Box(Modifier.fillMaxSize().background(Background)) {
         Canvas(Modifier.fillMaxSize()) {
             drawCircle(
                 brush = Brush.radialGradient(
@@ -99,18 +85,12 @@ fun BlockScreen() {
         }
 
         Column(
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 52.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // ── Header ────────────────────────────────────────────────────────
             Box(
-                Modifier
-                    .size(72.dp)
-                    .scale(orbScale)
-                    .clip(CircleShape)
+                Modifier.size(72.dp).scale(orbScale).clip(CircleShape)
                     .background(Brush.radialGradient(listOf(Accent, AccentDim))),
                 contentAlignment = Alignment.Center
             ) {
@@ -119,98 +99,83 @@ fun BlockScreen() {
 
             Spacer(Modifier.height(16.dp))
 
-            Text(
-                "Unplug",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Black,
-                color = OnBg
-            )
+            Text("Unplug", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Black, color = OnBg)
 
-            AnimatedContent(
-                targetState = totalBlocked,
-                label = "subtitle"
-            ) { count ->
+            AnimatedContent(targetState = totalBlocked, label = "subtitle") { count ->
                 Text(
-                    if (count == 0) "Nothing blocked yet"
-                    else "$count feature${if (count > 1) "s" else ""} blocked",
+                    if (count == 0) "Nothing blocked yet" else "$count feature${if (count > 1) "s" else ""} blocked",
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (count > 0) Accent else OnBgMuted,
-                    textAlign = TextAlign.Center
+                    color = if (count > 0) Accent else OnBgMuted
                 )
             }
 
             Spacer(Modifier.height(32.dp))
-
-            // ── Stats strip ───────────────────────────────────────────────────
             StatsStrip(totalBlocked = totalBlocked)
-
             Spacer(Modifier.height(28.dp))
 
-            // ── Section label ─────────────────────────────────────────────────
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Short-form content",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = OnBg
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    "BETA",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = AccentDim,
-                    modifier = Modifier
-                        .border(1.dp, AccentDim, RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                )
-            }
-
-            Spacer(Modifier.height(4.dp))
-
-            Text(
-                "Toggle to block the selected feature inside each app. Works even when Unplug is closed.",
-                style = MaterialTheme.typography.bodySmall,
-                color = OnBgMuted,
-                modifier = Modifier.fillMaxWidth()
+            // --- CHEAT MODE TOGGLE ---
+            CheatModeCard(
+                enabled = cheatEnabled,
+                onToggle = {
+                    Log.d("BlockScreen", "UI: Toggled Cheat Mode to $it")
+                    BlockPreferences.setCheatMode(it)
+                }
             )
+
+            Spacer(Modifier.height(24.dp))
+
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Short-form content", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = OnBg)
+                Spacer(Modifier.weight(1f))
+                Text("BETA", style = MaterialTheme.typography.labelSmall, color = AccentDim,
+                    modifier = Modifier.border(1.dp, AccentDim, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
+            }
 
             Spacer(Modifier.height(16.dp))
 
-            // ── App cards ─────────────────────────────────────────────────────
             BLOCKABLE_APPS.forEach { app ->
-                val isBlocked = blockedIds.contains(app.id)
                 AppBlockCard(
-                    app      = app,
-                    isBlocked = isBlocked,
-                    onToggle = { enabled ->
-                        Log.d(TAG, "Toggle ${app.id} → $enabled")
-                        BlockPreferences.setBlocked(app.id, enabled)
-                    }
+                    app = app,
+                    isBlocked = blockedIds.contains(app.id),
+                    onToggle = { BlockPreferences.setBlocked(app.id, it) }
                 )
                 Spacer(Modifier.height(12.dp))
             }
 
             Spacer(Modifier.height(24.dp))
-
-            // ── Coming soon ───────────────────────────────────────────────────
             ComingSoonCard()
+        }
+    }
+}
 
-            Spacer(Modifier.height(16.dp))
-
-            Text(
-                "All processing is on-device. No data leaves your phone.",
-                style = MaterialTheme.typography.labelSmall,
-                color = OnBgMuted,
-                textAlign = TextAlign.Center
+@Composable
+private fun CheatModeCard(enabled: Boolean, onToggle: (Boolean) -> Unit) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, if (enabled) Accent.copy(alpha = 0.5f) else Surface1, RoundedCornerShape(18.dp)),
+        color = if (enabled) Accent.copy(alpha = 0.05f) else Surface0,
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("⏳", fontSize = 20.sp)
+                    Spacer(Modifier.width(10.dp))
+                    Text("Cheat Time", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = OnBg)
+                }
+                Spacer(Modifier.height(2.dp))
+                Text("15m session window. Resets after 1.5h of silence.", style = MaterialTheme.typography.labelSmall, color = OnBgMuted)
+            }
+            Switch(
+                checked = enabled,
+                onCheckedChange = onToggle,
+                colors = SwitchDefaults.colors(checkedTrackColor = Accent)
             )
         }
     }
 }
 
-// ── Stats strip ───────────────────────────────────────────────────────────────
 
 @Composable
 private fun StatsStrip(totalBlocked: Int) {
@@ -259,7 +224,6 @@ private fun StatChip(label: String, value: String, icon: String, modifier: Modif
     }
 }
 
-// ── App block card ────────────────────────────────────────────────────────────
 
 @Composable
 private fun AppBlockCard(
@@ -357,8 +321,6 @@ private fun AppBlockCard(
         }
     }
 }
-
-// ── Coming soon ───────────────────────────────────────────────────────────────
 
 @Composable
 private fun ComingSoonCard() {

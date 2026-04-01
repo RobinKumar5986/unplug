@@ -6,10 +6,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import com.kgjr.unplug.helper.PermissionHelper
 import com.kgjr.unplug.screen.BlockScreen
-import com.kgjr.unplug.screen.PermissionScreen
+import com.kgjr.unplug.ui.screens.PermissionScreen
 import com.kgjr.unplug.ui.theme.UnplugTheme
+import com.kgjr.unplug.utils.PermissionHelper
+
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {

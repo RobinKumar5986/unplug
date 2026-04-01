@@ -1,4 +1,4 @@
-package com.kgjr.unplug.screen
+package com.kgjr.unplug.ui.screens
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -17,11 +17,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
-import com.kgjr.unplug.helper.PermissionHelper
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.kgjr.unplug.ui.theme.*
+import com.kgjr.unplug.utils.PermissionHelper
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 
@@ -35,7 +38,7 @@ private data class PermItem(
     val open: (android.content.Context) -> Unit
 )
 
-private val permissions = listOf(
+private fun buildPermissions() = listOf(
     PermItem(
         id       = "accessibility",
         icon     = Icons.Outlined.Face,
@@ -59,9 +62,18 @@ private val permissions = listOf(
         icon     = Icons.Outlined.Menu,
         title    = "Draw Over Apps",
         subtitle = "Show nudge overlays (future feature)",
-        why      = "Reserved for the upcoming 'cool-down overlay' that gently interrupts doom-scrolling sessions.",
+        why      = "Reserved for the upcoming cool-down overlay that gently interrupts doom-scrolling sessions.",
         check    = { PermissionHelper.hasOverlayPermission(it) },
         open     = { PermissionHelper.openOverlaySettings(it) }
+    ),
+    PermItem(
+        id       = "battery",
+        icon     = Icons.Outlined.Lock,
+        title    = "Battery Optimization",
+        subtitle = "Keep blocking alive in the background",
+        why      = "Some phones aggressively kill background services to save battery. Disabling optimization ensures Unplug keeps working even when you haven't opened it in a while.",
+        check    = { PermissionHelper.hasBatteryOptimizationIgnored(it) },
+        open     = { PermissionHelper.openBatteryOptimizationSettings(it) }
     )
 )
 
@@ -69,16 +81,51 @@ private val permissions = listOf(
 
 @Composable
 fun PermissionScreen(onPermissionsGranted: () -> Unit) {
-    val context = LocalContext.current
+    val context       = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Refresh state when the composable recomposes (after returning from settings)
-    var grantedMap by remember {
-        mutableStateOf(permissions.associate { it.id to it.check(context) })
+    val permissions = remember { buildPermissions() }
+
+    // Individual state vars — one per permission so only changed ones recompose
+    var accessibilityGranted by remember { mutableStateOf(PermissionHelper.hasAccessibilityPermission(context)) }
+    var usageGranted         by remember { mutableStateOf(PermissionHelper.hasUsageStatsPermission(context)) }
+    var overlayGranted       by remember { mutableStateOf(PermissionHelper.hasOverlayPermission(context)) }
+    var batteryGranted       by remember { mutableStateOf(PermissionHelper.hasBatteryOptimizationIgnored(context)) }
+
+    // Helper to re-read all states (called on every ON_RESUME)
+    fun refreshAll() {
+        accessibilityGranted = PermissionHelper.hasAccessibilityPermission(context)
+        usageGranted         = PermissionHelper.hasUsageStatsPermission(context)
+        overlayGranted       = PermissionHelper.hasOverlayPermission(context)
+        batteryGranted       = PermissionHelper.hasBatteryOptimizationIgnored(context)
     }
 
-    val allGranted = grantedMap.values.all { it }
+    // ── Lifecycle observer — refreshes states when user returns from Settings ──
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) refreshAll()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
-    // Pulse animation for the logo orb
+    // Map id → current granted state so PermCard stays generic
+    fun isGranted(id: String) = when (id) {
+        "accessibility" -> accessibilityGranted
+        "usage"         -> usageGranted
+        "overlay"       -> overlayGranted
+        "battery"       -> batteryGranted
+        else            -> false
+    }
+
+    val allGranted = accessibilityGranted && usageGranted && overlayGranted && batteryGranted
+
+    // Auto-navigate once everything is granted
+    LaunchedEffect(allGranted) {
+        if (allGranted) onPermissionsGranted()
+    }
+
+    // ── Pulse animation ───────────────────────────────────────────────────────
     val pulse = rememberInfiniteTransition(label = "pulse")
     val orbScale by pulse.animateFloat(
         initialValue = 1f, targetValue = 1.07f,
@@ -91,7 +138,6 @@ fun PermissionScreen(onPermissionsGranted: () -> Unit) {
             .fillMaxSize()
             .background(Background)
     ) {
-        // Radial glow behind orb
         Canvas(Modifier.fillMaxSize()) {
             drawCircle(
                 brush = Brush.radialGradient(
@@ -110,15 +156,13 @@ fun PermissionScreen(onPermissionsGranted: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
-            // ── Orb logo ─────────────────────────────────────────────────────
+            // ── Logo orb ──────────────────────────────────────────────────────
             Box(
                 Modifier
                     .size(80.dp)
                     .scale(orbScale)
                     .clip(CircleShape)
-                    .background(
-                        Brush.radialGradient(listOf(Accent, AccentDim))
-                    ),
+                    .background(Brush.radialGradient(listOf(Accent, AccentDim))),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -157,22 +201,19 @@ fun PermissionScreen(onPermissionsGranted: () -> Unit) {
                 "Unplug needs a few special permissions to watch for short-form content even when the app is closed. Everything runs on-device.",
                 style = MaterialTheme.typography.bodySmall,
                 color = OnBgMuted,
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp)
             )
 
             Spacer(Modifier.height(20.dp))
 
             // ── Permission cards ──────────────────────────────────────────────
             permissions.forEach { perm ->
-                val granted = grantedMap[perm.id] == true
                 PermCard(
-                    item = perm,
-                    granted = granted,
-                    onClick = {
-                        perm.open(context)
-                        // State will refresh in onResume via MainActivity
-                        grantedMap = permissions.associate { it.id to it.check(context) }
-                    }
+                    item    = perm,
+                    granted = isGranted(perm.id),
+                    onClick = { perm.open(context) }  // state refreshes via ON_RESUME
                 )
                 Spacer(Modifier.height(12.dp))
             }
@@ -228,7 +269,6 @@ private fun PermCard(item: PermItem, granted: Boolean, onClick: () -> Unit) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
 
-                // Icon badge
                 Box(
                     Modifier
                         .size(42.dp)
@@ -247,14 +287,28 @@ private fun PermCard(item: PermItem, granted: Boolean, onClick: () -> Unit) {
                 Spacer(Modifier.width(12.dp))
 
                 Column(Modifier.weight(1f)) {
-                    Text(item.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = OnBg)
-                    Text(item.subtitle, style = MaterialTheme.typography.labelSmall, color = OnBgMuted)
+                    Text(
+                        item.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = OnBg
+                    )
+                    Text(
+                        item.subtitle,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = OnBgMuted
+                    )
                 }
 
                 Spacer(Modifier.width(8.dp))
 
                 if (granted) {
-                    Icon(Icons.Outlined.CheckCircle, contentDescription = "Granted", tint = Accent, modifier = Modifier.size(22.dp))
+                    Icon(
+                        Icons.Outlined.CheckCircle,
+                        contentDescription = "Granted",
+                        tint = Accent,
+                        modifier = Modifier.size(22.dp)
+                    )
                 } else {
                     OutlinedButton(
                         onClick = onClick,
@@ -284,7 +338,6 @@ private fun PermCard(item: PermItem, granted: Boolean, onClick: () -> Unit) {
                 }
             }
 
-            // Expand chevron hint
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = if (expanded) Icons.Outlined.KeyboardArrowDown else Icons.Outlined.KeyboardArrowUp,

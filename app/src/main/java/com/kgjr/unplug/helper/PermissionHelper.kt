@@ -1,17 +1,16 @@
-package com.kgjr.unplug.helper
+package com.kgjr.unplug.utils
 
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 
 object PermissionHelper {
     private const val TAG = "PermissionHelper"
-
-    // ── Check individual permissions ─────────────────────────────────────────
 
     fun hasAccessibilityPermission(context: Context): Boolean {
         val service = "${context.packageName}/${com.kgjr.unplug.service.UnplugAccessibilityService::class.java.canonicalName}"
@@ -19,9 +18,9 @@ object PermissionHelper {
             context.contentResolver,
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
         ) ?: ""
-        val granted = enabledServices.contains(service)
-        Log.d(TAG, "Accessibility granted=$granted (enabled=$enabledServices)")
-        return granted
+        return enabledServices.contains(service).also {
+            Log.d(TAG, "Accessibility granted=$it")
+        }
     }
 
     fun hasUsageStatsPermission(context: Context): Boolean {
@@ -40,45 +39,67 @@ object PermissionHelper {
                 context.packageName
             )
         }
-        val granted = mode == AppOpsManager.MODE_ALLOWED
-        Log.d(TAG, "UsageStats granted=$granted")
-        return granted
+        return (mode == AppOpsManager.MODE_ALLOWED).also {
+            Log.d(TAG, "UsageStats granted=$it")
+        }
     }
 
-    fun hasOverlayPermission(context: Context): Boolean {
-        val granted = Settings.canDrawOverlays(context)
-        Log.d(TAG, "Overlay granted=$granted")
-        return granted
+    fun hasOverlayPermission(context: Context): Boolean =
+        Settings.canDrawOverlays(context).also {
+            Log.d(TAG, "Overlay granted=$it")
+        }
+
+    fun hasBatteryOptimizationIgnored(context: Context): Boolean {
+        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        return pm.isIgnoringBatteryOptimizations(context.packageName).also {
+            Log.d(TAG, "BatteryOptimizationIgnored=$it")
+        }
     }
 
     fun hasAllPermissions(context: Context): Boolean =
         hasAccessibilityPermission(context) &&
-        hasUsageStatsPermission(context) &&
-        hasOverlayPermission(context)
+                hasUsageStatsPermission(context) &&
+                hasOverlayPermission(context) &&
+                hasBatteryOptimizationIgnored(context)
 
-    // ── Open settings screens ─────────────────────────────────────────────────
 
     fun openAccessibilitySettings(context: Context) {
-        Log.d(TAG, "Opening Accessibility Settings")
         context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
     }
 
     fun openUsageStatsSettings(context: Context) {
-        Log.d(TAG, "Opening Usage Access Settings")
         context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
     }
 
     fun openOverlaySettings(context: Context) {
-        Log.d(TAG, "Opening Overlay Settings")
         context.startActivity(
             Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Uri.parse("package:${context.packageName}")
             ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
         )
+    }
+
+    fun openBatteryOptimizationSettings(context: Context) {
+        // Try direct exemption request first — takes user straight to the dialog
+        try {
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:${context.packageName}")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            // Fallback: open the general battery optimization list
+            Log.w(TAG, "Direct battery exemption dialog unavailable, opening settings list")
+            context.startActivity(
+                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            )
+        }
     }
 }
