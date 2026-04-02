@@ -23,6 +23,7 @@ object BlockPreferences {
     private const val KEY_CHEAT_ENABLED = "cheat_mode_enabled"
     private const val KEY_SESSION_START = "cheat_session_start"
     private const val KEY_LAST_ACTIVITY = "cheat_last_activity"
+    private const val KEY_ACCUMULATED_TIME = "cheat_accumulated_time"
 
     private lateinit var prefs: SharedPreferences
 
@@ -65,5 +66,11 @@ object BlockPreferences {
         get() = prefs.getLong(KEY_LAST_ACTIVITY, 0L)
         set(value) {
             prefs.edit().putLong(KEY_LAST_ACTIVITY, value).apply()
+        }
+
+    var accumulatedTime: Long
+        get() = prefs.getLong(KEY_ACCUMULATED_TIME, 0L)
+        set(value) {
+            prefs.edit().putLong(KEY_ACCUMULATED_TIME, value).apply()
         }
 }
