@@ -19,11 +19,10 @@ object BlockPreferences {
     private const val TAG  = "BlockPreferences"
     private const val PREF = "unplug_block_prefs"
 
-    private const val KEY_BLOCKED_IDS   = "blocked_ids"
-    private const val KEY_CHEAT_ENABLED = "cheat_mode_enabled"
-    private const val KEY_SESSION_START = "cheat_session_start"
-    private const val KEY_LAST_ACTIVITY = "cheat_last_activity"
-    private const val KEY_ACCUMULATED_TIME = "cheat_accumulated_time"
+    private const val KEY_BLOCKED_IDS      = "blocked_ids"
+    private const val KEY_CHEAT_ENABLED    = "cheat_mode_enabled"
+    private const val KEY_LAST_BLOCK_TIME  = "cheat_last_block_time"   // when cheat window exhausted & block started
+    private const val KEY_ACCUMULATED_TIME = "cheat_accumulated_time"  // scroll time used in current window
 
     private lateinit var prefs: SharedPreferences
 
@@ -33,11 +32,20 @@ object BlockPreferences {
     private val _cheatEnabled = MutableStateFlow(false)
     val cheatEnabled: StateFlow<Boolean> = _cheatEnabled
 
+    private val _accumulatedTime = MutableStateFlow(0L)
+    val accumulatedTimeFlow: StateFlow<Long> = _accumulatedTime
+
+    // Exposed so UI can show "unlocks in X" countdown
+    private val _lastBlockTime = MutableStateFlow(0L)
+    val lastBlockTimeFlow: StateFlow<Long> = _lastBlockTime
+
     fun init(context: Context) {
         prefs = context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-        _blockedIds.value = prefs.getStringSet(KEY_BLOCKED_IDS, emptySet()) ?: emptySet()
-        _cheatEnabled.value = prefs.getBoolean(KEY_CHEAT_ENABLED, false)
-        Log.d(TAG, "Initialized: Blocked=${_blockedIds.value}, CheatMode=${_cheatEnabled.value}")
+        _blockedIds.value     = prefs.getStringSet(KEY_BLOCKED_IDS, emptySet()) ?: emptySet()
+        _cheatEnabled.value   = prefs.getBoolean(KEY_CHEAT_ENABLED, false)
+        _accumulatedTime.value = prefs.getLong(KEY_ACCUMULATED_TIME, 0L)
+        _lastBlockTime.value  = prefs.getLong(KEY_LAST_BLOCK_TIME, 0L)
+        Log.d(TAG, "Init: blocked=${_blockedIds.value}, cheat=${_cheatEnabled.value}, accumulated=${_accumulatedTime.value}, lastBlock=${_lastBlockTime.value}")
     }
 
     fun isBlocked(id: String): Boolean = _blockedIds.value.contains(id)
@@ -47,30 +55,27 @@ object BlockPreferences {
         if (blocked) updated.add(id) else updated.remove(id)
         _blockedIds.value = updated
         prefs.edit().putStringSet(KEY_BLOCKED_IDS, updated).apply()
-        Log.d(TAG, "Block state changed: $id -> $blocked")
+        Log.d(TAG, "Block state: $id -> $blocked")
     }
 
     fun setCheatMode(enabled: Boolean) {
         _cheatEnabled.value = enabled
         prefs.edit().putBoolean(KEY_CHEAT_ENABLED, enabled).apply()
-        Log.d(TAG, "Cheat Mode toggled: $enabled")
+        Log.d(TAG, "Cheat mode -> $enabled")
     }
 
-    var sessionStartTime: Long
-        get() = prefs.getLong(KEY_SESSION_START, 0L)
+    // Timestamp of when the cheat window was exhausted and blocking began
+    var lastBlockTime: Long
+        get() = prefs.getLong(KEY_LAST_BLOCK_TIME, 0L)
         set(value) {
-            prefs.edit().putLong(KEY_SESSION_START, value).apply()
-        }
-
-    var lastActivityTime: Long
-        get() = prefs.getLong(KEY_LAST_ACTIVITY, 0L)
-        set(value) {
-            prefs.edit().putLong(KEY_LAST_ACTIVITY, value).apply()
+            _lastBlockTime.value = value
+            prefs.edit().putLong(KEY_LAST_BLOCK_TIME, value).apply()
         }
 
     var accumulatedTime: Long
         get() = prefs.getLong(KEY_ACCUMULATED_TIME, 0L)
         set(value) {
+            _accumulatedTime.value = value
             prefs.edit().putLong(KEY_ACCUMULATED_TIME, value).apply()
         }
 }
