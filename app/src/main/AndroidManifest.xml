@@ -33,7 +33,7 @@
         <service
             android:name=".service.UnplugAccessibilityService"
             android:exported="true"
-            android:label="Unplug – Block Reels &amp; Shorts"
+            android:label="App Block - Unplug"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
 
             <intent-filter>
