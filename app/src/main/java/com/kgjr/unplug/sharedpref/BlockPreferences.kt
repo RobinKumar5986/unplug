@@ -24,6 +24,8 @@ object BlockPreferences {
     private const val KEY_LAST_BLOCK_TIME  = "cheat_last_block_time"   // when cheat window exhausted & block started
     private const val KEY_ACCUMULATED_TIME = "cheat_accumulated_time"  // scroll time used in current window
 
+    private const val KEY_GRAY_SCREEN_PACKAGES = "gray_screen_packages"
+
     private lateinit var prefs: SharedPreferences
 
     private val _blockedIds = MutableStateFlow<Set<String>>(emptySet())
@@ -62,6 +64,14 @@ object BlockPreferences {
         _cheatEnabled.value = enabled
         prefs.edit().putBoolean(KEY_CHEAT_ENABLED, enabled).apply()
         Log.d(TAG, "Cheat mode -> $enabled")
+    }
+
+    fun getGrayScreenPackages(): Set<String> =
+        prefs.getStringSet(KEY_GRAY_SCREEN_PACKAGES, emptySet()) ?: emptySet()
+
+    fun setGrayScreenPackages(packages: Set<String>) {
+        prefs.edit().putStringSet(KEY_GRAY_SCREEN_PACKAGES, packages).apply()
+        Log.d(TAG, "Gray screen packages saved: $packages")
     }
 
     // Timestamp of when the cheat window was exhausted and blocking began

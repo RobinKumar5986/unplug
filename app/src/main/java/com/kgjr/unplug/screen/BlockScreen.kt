@@ -19,6 +19,9 @@ import androidx.compose.ui.unit.*
 
 import com.kgjr.unplug.ui.theme.*
 import android.util.Log
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
+import com.kgjr.unplug.navigation.graph.subgraph.ScreenId
 import com.kgjr.unplug.sharedpref.BlockPreferences
 import com.kgjr.unplug.sharedpref.BlockedApp
 import kotlinx.coroutines.delay
@@ -76,7 +79,9 @@ private fun formatTime(epochMs: Long): String =
     SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date(epochMs))
 
 @Composable
-fun BlockScreen() {
+fun BlockScreen(
+    onMoveTo: (ScreenId) -> Unit
+) {
     val context = LocalContext.current
     LaunchedEffect(Unit) { BlockPreferences.init(context) }
 
@@ -152,7 +157,42 @@ fun BlockScreen() {
                 Spacer(Modifier.height(12.dp))
             }
 
-            Spacer(Modifier.height(24.dp))
+            Surface(
+                onClick = { onMoveTo(ScreenId.GRAY_SCREEN) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp)),
+                color = Surface1,
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("⬜", fontSize = 22.sp)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Gray Screen mode",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = OnBg
+                        )
+                        Text(
+                            "Distraction-free mode",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = OnBgMuted
+                        )
+                    }
+                    Icon(
+                        Icons.Outlined.ArrowForward,
+                        contentDescription = null,
+                        tint = OnBgMuted,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
             ComingSoonCard()
         }
     }

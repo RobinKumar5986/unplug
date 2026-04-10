@@ -6,4 +6,6 @@ object NavigationDestinations {
 
     const val homeMain = "HOME_SCREEN_MAIN"
     const val homeScreen = "HOME_SCREEN"
+
+    const val grayScreen = "GRAY_SCREEN"
 }
