@@ -15,7 +15,6 @@ class UnplugAccessibilityService : AccessibilityService() {
         private const val TAG               = "UnplugService"
         private const val PKG_INSTAGRAM     = "com.instagram.android"
         private const val PKG_YOUTUBE       = "com.google.android.youtube"
-        private const val PKG_GPAY          = "com.google.android.apps.nbu.paisa.user"
         private const val YT_REEL_RECYCLER  = "reel_recycler"
         private const val IG_CLIPS_TAB      = "clips_tab"
         private const val BLOCK_COOLDOWN_MS = 2_000L
@@ -32,13 +31,12 @@ class UnplugAccessibilityService : AccessibilityService() {
         Log.i(TAG, "✅ Service connected")
         BlockPreferences.init(applicationContext)
         serviceInfo = AccessibilityServiceInfo().apply {
-            // Updated to listen for all events to capture clicks and text changes
             eventTypes          = AccessibilityEvent.TYPES_ALL_MASK
             feedbackType        = AccessibilityServiceInfo.FEEDBACK_GENERIC
             flags               = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
                     AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
             notificationTimeout = 100
-            packageNames        = arrayOf(PKG_INSTAGRAM, PKG_YOUTUBE, PKG_GPAY)
+            packageNames        = arrayOf(PKG_INSTAGRAM, PKG_YOUTUBE)
         }
     }
 
@@ -47,64 +45,20 @@ class UnplugAccessibilityService : AccessibilityService() {
         val root = rootInActiveWindow ?: return
 
         try {
-            if (pkg == PKG_GPAY) {
-                inspectGPayScreen(root, event)
-            } else {
-                val inShorts = when (pkg) {
-                    PKG_YOUTUBE   -> findNodeById(root, YT_REEL_RECYCLER)
-                    PKG_INSTAGRAM -> findNodeByIdSelected(root, IG_CLIPS_TAB, true)
-                    else          -> false
-                }
-
-                if (inShorts) handleInterception(pkg)
-                else lastScreenEnterTime = null
+            val inShorts = when (pkg) {
+                PKG_YOUTUBE   -> findNodeById(root, YT_REEL_RECYCLER)
+                PKG_INSTAGRAM -> findNodeByIdSelected(root, IG_CLIPS_TAB, true)
+                else          -> false
             }
+
+            if (inShorts) handleInterception(pkg)
+            else lastScreenEnterTime = null
+
         } finally {
             root.recycle()
         }
     }
 
-    private fun inspectGPayScreen(root: AccessibilityNodeInfo, event: AccessibilityEvent) {
-        val eventType = AccessibilityEvent.eventTypeToString(event.eventType)
-        Log.d(TAG, "🔍 GPAY_SCAN | Event: $eventType")
-
-        if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
-            val source = event.source
-            if (source != null) {
-                val text = source.text?.toString() ?: "No text"
-                val viewId = source.viewIdResourceName ?: "no_id"
-                val className = source.className?.toString()?.split(".")?.last() ?: "View"
-                val clickable = if (source.isClickable) " [CLICKABLE]" else ""
-                Log.i(TAG, ">>> CLICKED VIEW: [$className] ID: $viewId | TXT: \"$text\" | DESC: \"${source.contentDescription ?: ""}\"$clickable")
-                source.recycle()
-            } else {
-                Log.i(TAG, ">>> CLICKED but source is null")
-            }
-        }
-
-        // Start recursive crawl
-        crawlAndLog(root, 0)
-    }
-
-    private fun crawlAndLog(node: AccessibilityNodeInfo?, depth: Int) {
-        if (node == null) return
-
-        val indent = "  ".repeat(depth)
-        val className = node.className?.toString()?.split(".")?.last() ?: "View"
-        val resourceId = node.viewIdResourceName ?: "no_id"
-        val text = node.text ?: ""
-        val description = node.contentDescription ?: ""
-        val clickable = if (node.isClickable) " [CLICKABLE]" else ""
-
-        // Filter out empty noise to keep logs readable
-        if (text.isNotEmpty() || description.isNotEmpty() || resourceId != "no_id") {
-            Log.i(TAG, "$indent> [$className] ID: $resourceId | TXT: \"$text\" | DESC: \"$description\"$clickable")
-        }
-
-        for (i in 0 until node.childCount) {
-            crawlAndLog(node.getChild(i), depth + 1)
-        }
-    }
 
     private fun handleInterception(pkg: String) {
         val id = if (pkg == PKG_YOUTUBE) "youtube_shorts" else "instagram_reels"

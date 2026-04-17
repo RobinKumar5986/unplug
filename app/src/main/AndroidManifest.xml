@@ -19,25 +19,17 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Unplug">
 
-        <!-- No intent-filter here — alias handles launcher -->
         <activity
             android:name=".LauncherActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.Unplug"
-            android:windowSoftInputMode="adjustResize" />
-
-        <!-- Alias — this is what shows the icon, can be disabled programmatically -->
-        <activity-alias
-            android:name=".LauncherAlias"
-            android:targetActivity=".LauncherActivity"
-            android:enabled="true"
-            android:exported="true">
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity-alias>
+        </activity>
 
         <activity
             android:name=".MainActivity"
@@ -58,7 +50,6 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
-        <!-- Secret code receiver to re-show icon via dialer *#*#7867#*#* -->
         <receiver
             android:name=".service.SecretCodeReceiver"
             android:exported="true">

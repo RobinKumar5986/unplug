@@ -52,7 +52,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import com.kgjr.unplug.helper.HideAppHelper
 import com.kgjr.unplug.sharedpref.BlockPreferences
 import com.kgjr.unplug.ui.theme.Accent
 import com.kgjr.unplug.ui.theme.AccentGlow
@@ -69,9 +68,6 @@ fun GrayScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val pm = context.packageManager
 
-    LaunchedEffect(Unit) {
-        HideAppHelper.hideAppIconPermanently(context);
-    }
     // Load only user-installed apps
     val apps = remember {
         pm.getInstalledApplications(PackageManager.GET_META_DATA)
